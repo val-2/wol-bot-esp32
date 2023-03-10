@@ -1,4 +1,3 @@
-#include "M5Atom.h"
 #include "WiFiMulti.h"
 #include "WiFiClientSecure.h"
 #include "WiFiUDP.h"
@@ -38,10 +37,8 @@ unsigned long bot_lasttime; // last time messages' scan has been done
 
 
 void sendWOL() {
-  M5.dis.drawpix(0, WHITE);
   WOL.sendMagicPacket(MAC_ADDR); // send WOL on default port (9)
   delay(300);
-  M5.dis.drawpix(0, AMBER);
 }
 
 
@@ -52,7 +49,7 @@ void handleNewMessages(int numNewMessages) {
   for (int i = 0; i < numNewMessages; i++) {
     Serial.println(bot.messages[i].from_id);
     if (bot.messages[i].from_id != ALLOWED_ID) continue;
-    
+
     String chat_id = bot.messages[i].chat_id;
     String text = bot.messages[i].text;
 
@@ -62,19 +59,11 @@ void handleNewMessages(int numNewMessages) {
     if (text == "/wol") {
       sendWOL();
       bot.sendMessage(chat_id, "Magic Packet sent!", "");
-    } else if (text == "/ledon") {
-      M5.dis.drawpix(0, AMBER); // turn the LED on
-      bot.sendMessage(chat_id, "Led is ON.", "");
-    } else if (text == "/ledoff") {
-      M5.dis.drawpix(0, OFF); // turn the LED off)
-      bot.sendMessage(chat_id, "Led is OFF.", "");
     } else if (text == "/ping") {
       bot.sendMessage(chat_id, "Pong.", "");
     } else if (text == "/start") {
       String welcome = "Welcome to **WoL Bot**, " + from_name + ".\n";
       welcome += "Use is restricted to the bot owner.\n\n";
-      welcome += "/ledon : Switch the Led ON\n";
-      welcome += "/ledoff : Switch the Led OFF\n";
       welcome += "/wol : Send the Magic Packet\n";
       welcome += "/ping : Check the bot status\n";
       bot.sendMessage(chat_id, welcome, "Markdown");
@@ -90,9 +79,9 @@ void setup(){
   wifiMulti.addAP(WIFI_SSID, WIFI_PASS);
   // Clear the serial port buffer and set the serial port baud rate to 115200.
   // Do not Initialize I2C. Initialize the LED matrix.
-  M5.begin(true, false, true); delay(25);
-    
-  M5.dis.drawpix(0, RED); delay(100);
+
+  delay(25);
+
 
   // Add root certificate for api.telegram.org
   secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
@@ -105,10 +94,10 @@ void setup(){
   Serial.println("OK");
 
   // Attention: 255.255.255.255 is denied in some networks
-  WOL.calculateBroadcastAddress(WiFi.localIP(), WiFi.subnetMask()); 
+  WOL.calculateBroadcastAddress(WiFi.localIP(), WiFi.subnetMask());
 
-  M5.dis.drawpix(0, GREEN); delay(100);
-    
+  delay(100);
+
   Serial.print("Retrieving time...");
   configTime(0, 0, "pool.ntp.org"); // get UTC time via NTP
   time_t now = time(nullptr);
@@ -118,18 +107,23 @@ void setup(){
     now = time(nullptr);
   }
   Serial.println(now);
-  
-  M5.dis.drawpix(0, AMBER); delay(100);
+
+  delay(100);
 }
 
 
 /* =================================== LOOP =================================== */
 
 void loop() {
-  // Send WoL on button press
-  if (M5.Btn.wasPressed()) sendWOL();
-
   if (millis() - bot_lasttime > BOT_MTBS) {
+    // Check WiFi connection status
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("WiFi disconnected. Attempting to reconnect...");
+      wifiMulti.run();
+      delay(500);
+    }
+
+
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
     while (numNewMessages) {
       Serial.println("Response received");
@@ -140,5 +134,4 @@ void loop() {
   }
 
   delay(10);
-  M5.update();
 }
